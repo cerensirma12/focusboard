@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusBoard — Görev & Odak Planlayıcı</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+  <div id="root" class="w-full max-w-xl"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [tasks, setTasks] = useState(() => {
+        const saved = localStorage.getItem("focusboard_tasks");
+        return saved ? JSON.parse(saved) : [
+          { id: 1, text: "Web geliştirme projesini teslim et", category: "Ders", done: false },
+          { id: 2, text: "Canlı site linkini kontrol et", category: "Kişisel", done: false }
+        ];
+      });
+      const [input, setInput] = useState("");
+      const [category, setCategory] = useState("Ders");
+      const [secondsLeft, setSecondsLeft] = useState(25 * 60);
+      const [isRunning, setIsRunning] = useState(false);
+
+      useEffect(() => {
+        localStorage.setItem("focusboard_tasks", JSON.stringify(tasks));
+      }, [tasks]);
+
+      useEffect(() => {
+        if (!isRunning) return;
+        const timer = setInterval(() => {
+          setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+        return () => clearInterval(timer);
+      }, [isRunning]);
+
+      const addTask = (e) => {
+        e.preventDefault();
+        if (!input.trim()) return;
+        setTasks([{ id: Date.now(), text: input.trim(), category, done: false }, ...tasks]);
+        setInput("");
+      };
+
+      const toggleTask = (id) => {
+        setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+      };
+
+      const deleteTask = (id) => {
+        setTasks(tasks.filter((t) => t.id !== id));
+      };
+
+      const completed = tasks.filter((t) => t.done).length;
+      const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);
+      const mins = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+      const secs = String(secondsLeft % 60).padStart(2, "0");
+
+      return (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-indigo-400">FocusBoard</h1>
+              <p className="text-xs text-slate-400">Görev Yönetimi & Odak Zamanlayıcı</p>
+            </div>
+            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-medium">
+              %{progress} Tamamlandı
+            </span>
+          </div>
+
+          <div className="bg-slate-950/80 rounded-xl p-4 flex items-center justify-between border border-slate-800">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-400">Pomodoro Sayacı</p>
+              <p className="text-3xl font-mono font-bold text-white mt-1">{mins}:{secs}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setIsRunning(!isRunning)} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium">
+                {isRunning ? "Duraklat" : "Başlat"}
+              </button>
+              <button onClick={() => { setIsRunning(false); setSecondsLeft(25 * 60); }} className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">
+                Sıfırla
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={addTask} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Yeni görev yaz..."
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            />
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm">
+              <option value="Ders">Ders</option>
+              <option value="Kulüp">Kulüp</option>
+              <option value="Kişisel">Kişisel</option>
+            </select>
+            <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-sm font-medium">
+              Ekle
+            </button>
+          </form>
+
+          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+          </div>
+
+          <ul className="space-y-2">
+            {tasks.map((task) => (
+              <li key={task.id} className="flex items-center justify-between bg-slate-950/60 border border-slate-800 px-3 py-2.5 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" checked={task.done} onChange={() => toggleTask(task.id)} className="w-4 h-4 accent-indigo-500" />
+                  <span className={`text-sm ${task.done ? "line-through text-slate-500" : "text-slate-200"}`}>{task.text}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">{task.category}</span>
+                </div>
+                <button onClick={() => deleteTask(task.id)} className="text-xs text-rose-400 hover:text-rose-300">Sil</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
